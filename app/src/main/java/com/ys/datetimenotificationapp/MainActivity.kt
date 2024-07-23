@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.ys.datetimenotificationapp.ui.theme.DarkCyan
 import com.ys.datetimenotificationapp.ui.theme.DateTimeNotificationAppTheme
 import java.util.Locale
 
@@ -80,7 +81,7 @@ fun DateTime(modifier: Modifier = Modifier) {
                 timeButton = "$hour:${if (minute < 10) "0$minute" else "$minute"}"
             }
         }) {
-            Text(text = timeButton)
+            Text(text = timeButton, color = DarkCyan)
         }
 
         OutlinedButton(onClick = {
@@ -94,7 +95,7 @@ fun DateTime(modifier: Modifier = Modifier) {
                 dateButton = dateFormatter.format(dateInMillis)
             }
         }) {
-            Text(text = dateButton)
+            Text(text = dateButton, color = DarkCyan)
         }
 
         OutlinedButton(onClick = {
@@ -107,7 +108,7 @@ fun DateTime(modifier: Modifier = Modifier) {
             Log.d("trace", "$timeInMillis")
             scheduleNotification(context, timeInMillis)
         }) {
-            Text(text = "Send notification")
+            Text(text = "Send notification", color = DarkCyan)
         }
 
     }
