@@ -1,16 +1,16 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package com.ys.datetimenotificationapp
 
 import android.app.AlarmManager
+import android.app.DatePickerDialog
+import android.app.DatePickerDialog.OnDateSetListener
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.icu.text.SimpleDateFormat
 import android.icu.util.Calendar
-import android.icu.util.TimeZone
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -20,18 +20,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerState
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerState
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -74,55 +65,35 @@ fun DateTime(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
         modifier = modifier
     ) {
+        val currentCalendar = Calendar.getInstance()
         var timeButton by remember { mutableStateOf("Choose a time") }
         var dateButton by remember { mutableStateOf("Choose a date") }
-        var isTimePickerShown by remember { mutableStateOf(false) }
-        var isDatePickerShown by remember { mutableStateOf(false) }
-        var hour by remember { mutableIntStateOf(0) }
-        var minute by remember { mutableIntStateOf(0) }
+        var hour by remember { mutableIntStateOf(currentCalendar.get(Calendar.HOUR_OF_DAY)) }
+        var minute by remember { mutableIntStateOf(currentCalendar.get(Calendar.MINUTE)) }
         val context = LocalContext.current
         var dateInMillis by remember { mutableLongStateOf(0) }
 
-        if (isTimePickerShown) PickTime(onConfirm = {
-            hour = it.hour
-            minute = it.minute
-            timeButton = "$hour:$minute"
-            isTimePickerShown = false
-        }, onDismiss = { isTimePickerShown = false })
-
-        if (isDatePickerShown) PickDate(onConfirm = {
-
-            val selectedDateMillis = it.selectedDateMillis ?: 0
-            Log.d("trace","date from picker is $selectedDateMillis")
-
-            val utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-                timeInMillis = selectedDateMillis
+        OutlinedButton(onClick = {
+            showTimePickerDialog(context, hour, minute) { selectedHour, selectedMinute ->
+                hour = selectedHour
+                minute = selectedMinute
+                timeButton = "$hour:${if (minute < 10) "0$minute" else "$minute"}"
             }
-
-            // Create a Calendar instance for Africa/Cairo to convert to local time
-            val localCalendar = Calendar.getInstance(TimeZone.getTimeZone("Africa/Cairo")).apply {
-                set(Calendar.YEAR, utcCalendar.get(Calendar.YEAR))
-                set(Calendar.MONTH, utcCalendar.get(Calendar.MONTH))
-                set(Calendar.DAY_OF_MONTH, utcCalendar.get(Calendar.DAY_OF_MONTH))
-                set(Calendar.HOUR_OF_DAY, utcCalendar.get(Calendar.HOUR_OF_DAY))
-                set(Calendar.MINUTE, utcCalendar.get(Calendar.MINUTE))
-                set(Calendar.SECOND, utcCalendar.get(Calendar.SECOND))
-                set(Calendar.MILLISECOND, utcCalendar.get(Calendar.MILLISECOND))
-            }
-
-            dateInMillis = localCalendar.timeInMillis
-
-            Log.d("trace","date after calendar is $dateInMillis")
-            val dateFormatter = SimpleDateFormat("dd-MM-yyyy", Locale.US)
-            dateButton = dateFormatter.format(localCalendar.time)
-            isDatePickerShown = false
-        }, onDismiss = { isDatePickerShown = false })
-
-        OutlinedButton(onClick = { isTimePickerShown = true }) {
+        }) {
             Text(text = timeButton)
         }
 
-        OutlinedButton(onClick = { isDatePickerShown = true }) {
+        OutlinedButton(onClick = {
+            val year = currentCalendar.get(Calendar.YEAR)
+            val month = currentCalendar.get(Calendar.MONTH)
+            val day = currentCalendar.get(Calendar.DAY_OF_MONTH)
+            showDatePickerDialog(context, year, month, day) {
+                dateInMillis = it
+                Log.d("trace", "date is $dateInMillis")
+                val dateFormatter = SimpleDateFormat("dd-MM-yyyy", Locale.US)
+                dateButton = dateFormatter.format(dateInMillis)
+            }
+        }) {
             Text(text = dateButton)
         }
 
@@ -133,7 +104,7 @@ fun DateTime(modifier: Modifier = Modifier) {
                 context = context
             )
             val timeInMillis = dateInMillis + minute * 60_000 + (hour) * 3_600_000
-            Log.d("trace","$timeInMillis")
+            Log.d("trace", "$timeInMillis")
             scheduleNotification(context, timeInMillis)
         }) {
             Text(text = "Send notification")
@@ -142,36 +113,42 @@ fun DateTime(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun PickTime(onConfirm: (TimePickerState) -> Unit, onDismiss: () -> Unit) {
-    val timePickerState = rememberTimePickerState(
-        is24Hour = false
-    )
-
-    AlertDialog(onDismissRequest = { }, confirmButton = {
-        TextButton(onClick = { onConfirm(timePickerState) }) {
-            Text(text = "OK")
-        }
-    }, dismissButton = {
-        TextButton(onClick = { onDismiss() }) {
-            Text(text = "Cancel")
-        }
-    }, text = { TimePicker(state = timePickerState) })
+fun showTimePickerDialog(
+    context: Context,
+    initialHour: Int,
+    initialMinute: Int,
+    onTimeSet: (Int, Int) -> Unit
+) {
+    val timeSetListener = TimePickerDialog.OnTimeSetListener { _, hourOfDay, minute ->
+        onTimeSet(hourOfDay, minute)
+    }
+    val timePickerDialog =
+        TimePickerDialog(context, timeSetListener, initialHour, initialMinute, true)
+    timePickerDialog.show()
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PickDate(onConfirm: (DatePickerState) -> Unit, onDismiss: () -> Unit) {
-    val datePickerState = rememberDatePickerState()
-    AlertDialog(onDismissRequest = {}, confirmButton = {
-        TextButton(onClick = { onConfirm(datePickerState) }) {
-            Text(text = "OK")
+fun showDatePickerDialog(
+    context: Context,
+    initialYear: Int,
+    initialMonth: Int,
+    initialDay: Int,
+    onDateSet: (Long) -> Unit
+) {
+    val dateSetListener = OnDateSetListener { _, year, month, dayOfMonth ->
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, month)
+            set(Calendar.DAY_OF_MONTH, dayOfMonth)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
         }
-    }, dismissButton = {
-        TextButton(onClick = { onDismiss() }) {
-            Text(text = "Cancel")
-        }
-    }, text = { DatePicker(state = datePickerState) })
+        onDateSet(calendar.timeInMillis)
+    }
+    val datePickerDialog =
+        DatePickerDialog(context, dateSetListener, initialYear, initialMonth, initialDay)
+    datePickerDialog.show()
 }
 
 private fun createNotificationChannel(context: Context) {
@@ -193,9 +170,8 @@ fun sendNotification(title: String, text: String, context: Context) {
 
     try {
         NotificationManagerCompat.from(context).notify(99, builder.build())
-    }
-    catch(e: SecurityException){
-        Log.d("trace","Error $e")
+    } catch (e: SecurityException) {
+        Log.d("trace", "Error $e")
     }
 }
 
