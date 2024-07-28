@@ -90,7 +90,6 @@ fun DateTime(modifier: Modifier = Modifier) {
             val day = currentCalendar.get(Calendar.DAY_OF_MONTH)
             showDatePickerDialog(context, year, month, day) {
                 dateInMillis = it
-                Log.d("trace", "date is $dateInMillis")
                 val dateFormatter = SimpleDateFormat("dd-MM-yyyy", Locale.US)
                 dateButton = dateFormatter.format(dateInMillis)
             }
@@ -105,7 +104,6 @@ fun DateTime(modifier: Modifier = Modifier) {
                 context = context
             )
             val timeInMillis = dateInMillis + minute * 60_000 + (hour) * 3_600_000
-            Log.d("trace", "$timeInMillis")
             scheduleNotification(context, timeInMillis)
         }) {
             Text(text = "Send notification", color = DarkCyan)
@@ -162,7 +160,6 @@ private fun createNotificationChannel(context: Context) {
 }
 
 fun sendNotification(title: String, text: String, context: Context) {
-    //Builder pattern : setter returns the object
     val builder = NotificationCompat.Builder(context, "1")
         .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle(title)
